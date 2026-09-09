@@ -2,13 +2,17 @@
 
 > **请先看这里 / Read this first**
 >
-> **中文：**本项目通过给 Google Antigravity 及其子进程注入**进程级 HTTP/SOCKS 代理**来解决“浏览器能通过代理联网，但 Antigravity 或后台进程仍然不走系统代理”的问题。**不需要开启 TUN。**
+> **中文：本工具主要面向想使用 Antigravity，但不希望开启代理客户端的 TUN 模式、让虚拟网卡接管本机全部流量的用户。**它让 Antigravity 及其子进程单独继承本地 HTTP/SOCKS 代理，而不是让整台机器进入 TUN。
 >
-> **EN:** This project launches Google Antigravity with a **process-local HTTP/SOCKS proxy**. It is intended for the common case where your proxy client is working and browsers can reach the Internet, but Antigravity or one of its backend processes still ignores the normal OS proxy. **TUN mode is not required.**
+> **EN: This tool is primarily for users who want to use Antigravity without enabling their proxy client's TUN mode and letting a virtual network interface intercept all traffic on the machine.** It gives Antigravity and its child processes their own local HTTP/SOCKS proxy environment instead of putting the whole machine behind TUN.
 >
-> **中文：**脚本已经尽量做成通用版，但不同代理客户端、端口、安装路径和系统版本仍可能存在差异。如果脚本无法启动 Antigravity，或者启动后仍无法联网，**不要关闭 TLS 校验、Gatekeeper、SIP、Defender 等安全机制**。请先正常打开你的代理工具，再运行下方安全诊断命令，把**本仓库脚本 + 命令行输出 + 具体报错**一起交给 AI，让 AI 沿用本项目的“仅向 Antigravity 进程树注入代理环境变量”的逻辑，为你的机器重写一份。
+> **中文：这个工具最初就是为了解决两类实际症状而诞生的：① Antigravity 出现与常见报错截图相同或类似的网络连接、模型不可达/无法连接服务类错误；② OAuth 已经成功登录，但返回 Antigravity 后后续登录、初始化或授权页面白屏，流程无法继续。**尤其当根因是 Antigravity 或其后台组件没有正确读取/继承系统代理时，本工具正是针对这一层处理。
 >
-> **EN:** The launcher is designed to be generic, but proxy clients, ports, install paths and OS versions vary. If it cannot launch Antigravity or Antigravity still has no network access, **do not disable TLS verification, Gatekeeper, SIP, Defender, or other security controls**. Start your normal proxy client, collect the safe diagnostic output below, and give the launcher files + diagnostic output + exact error to an AI assistant. Ask it to rewrite the launcher while preserving the same process-local proxy-injection design.
+> **EN: This project was created while solving two recurring Antigravity symptoms: (1) network, model-unreachable, or service-connection errors like the commonly reported screenshot/error state; and (2) OAuth completes successfully, but after returning to Antigravity the next login, initialization, or authorization view becomes a blank white page and cannot continue.** It is particularly relevant when the underlying cause is that Antigravity or one of its backend components does not correctly honor/inherit the normal OS proxy.
+>
+> **中文：**脚本已经尽量做成通用版，但代理客户端、端口、安装路径和系统版本仍可能不同。如果脚本无法启动 Antigravity，或启动后仍无法联网，**不要关闭 TLS 校验、Gatekeeper、SIP、Defender 等安全机制**。先正常打开你的代理工具，再运行下方对应系统的安全诊断命令，把**本仓库脚本 + 已脱敏命令行输出 + 具体报错/截图 + 当前代理客户端名称**一起交给 AI，让 AI 沿用本项目“仅向 Antigravity 进程树注入代理环境变量”的逻辑，为你的机器重写一份。
+>
+> **EN:** The launcher is designed to be generic, but proxy clients, ports, install paths, and OS versions vary. If it cannot launch Antigravity or Antigravity still has no network access, **do not disable TLS verification, Gatekeeper, SIP, Defender, or other security controls**. Start your normal proxy client, run the safe diagnostic command for your OS below, and give the **launcher + sanitized output + exact error/screenshot + proxy-client name** to an AI assistant. Ask it to preserve this project's process-local proxy-injection design while adapting the launcher to your machine.
 
 [English README / 英文说明](README.md)
 
@@ -33,7 +37,7 @@
 2. Use its normal local/system-proxy mode if possible. **TUN is not required for this project.**
 3. Quit Antigravity completely.
 4. Run the diagnostic command for your OS below.
-5. Before sharing the output, remove any subscription URL, password, token, cookie, API key, proxy credential or other secret if one appears.
+5. Before sharing the output, remove any subscription URL, password, token, cookie, API key, proxy credential, or other secret if one appears.
 6. Give an AI assistant the relevant launcher file(s), complete sanitized diagnostic output, exact error/screenshot, and the name of the proxy client currently open.
 
 ### Windows 10 / Windows 11 诊断 / Diagnostics
@@ -55,14 +59,17 @@ Write-Host "`n### 2. Current proxy environment variables"
 Get-ChildItem Env: |
     Where-Object { $_.Name -match '^(HTTP|HTTPS|ALL|NO)_PROXY$' } |
     Sort-Object Name |
-    Format-Table -AutoSize
+    ForEach-Object {
+        $v = $_.Value -replace '(?i)(https?|socks5?)://[^/@\s]+@', '$1://***@'
+        [PSCustomObject]@{ Name = $_.Name; Value = $v }
+    } | Format-Table -AutoSize
 
 Write-Host "`n### 3. Current-user Windows Internet proxy"
 $inet = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
 [PSCustomObject]@{
-    ProxyEnable   = $inet.ProxyEnable
-    ProxyServer   = $inet.ProxyServer
-    AutoConfigURL = $inet.AutoConfigURL
+    ProxyEnable      = $inet.ProxyEnable
+    ProxyServer      = $inet.ProxyServer
+    HasAutoConfigURL = [bool]$inet.AutoConfigURL
 } | Format-List
 
 Write-Host "`n### 4. WinHTTP proxy"
@@ -122,10 +129,10 @@ sw_vers
 printf 'Architecture: %s\n' "$(uname -m)"
 
 printf '\n### 2. Current proxy environment variables\n'
-env | grep -iE '^(http|https|all|no)_proxy=' || echo 'No proxy environment variables found.'
+env | grep -iE '^(http|https|all|no)_proxy=' | sed -E 's#(https?|socks5?)://[^/@[:space:]]+@#\1://***@#Ig' || echo 'No proxy environment variables found.'
 
 printf '\n### 3. macOS system proxy\n'
-scutil --proxy
+scutil --proxy | sed -E 's#(ProxyAutoConfigURLString : ).*#\1<redacted>#'
 
 printf '\n### 4. Network services\n'
 networksetup -listallnetworkservices
@@ -148,6 +155,94 @@ scutil --nc list 2>/dev/null
 
 printf '\n### 10. Relevant system extensions\n'
 systemextensionsctl list 2>/dev/null | grep -iE 'v2ray|xray|sing|clash|mihomo|sakura' || echo 'No matching system extension found.'
+
+printf '\n%s\n' '================ ANTIGRAVITY PROXY DIAG END =================='
+```
+
+### Linux 诊断 / Diagnostics
+
+**中文：**打开终端，确认代理客户端已经启动，然后粘贴下面整段。命令尽量兼容常见 Linux 发行版，不需要 root。Linux 没有统一的“系统代理”接口，因此会同时检查代理环境变量、可用时的 GNOME 代理设置、本地监听端口、相关进程和常见 Antigravity 路径，并刻意不打印完整进程命令行。
+
+**EN:** Open a terminal, make sure your proxy client is already running, and paste the entire block below. It is designed to work across common Linux distributions without root privileges. Linux has no single universal system-proxy API, so it checks proxy environment variables, GNOME proxy settings when available, local listeners, relevant processes, and common Antigravity locations. It intentionally avoids printing full process command lines.
+
+```bash
+printf '%s\n' '================ ANTIGRAVITY PROXY DIAG BEGIN ================'
+
+printf '\n### 1. Linux / CPU / desktop session\n'
+[ -r /etc/os-release ] && cat /etc/os-release
+printf 'Kernel: %s\n' "$(uname -srmo 2>/dev/null || uname -a)"
+printf 'Architecture: %s\n' "$(uname -m)"
+printf 'Desktop: %s\n' "${XDG_CURRENT_DESKTOP:-unknown}"
+printf 'Session type: %s\n' "${XDG_SESSION_TYPE:-unknown}"
+
+printf '\n### 2. Current proxy environment variables\n'
+PROXY_ENV="$(env | grep -iE '^(http|https|all|no)_proxy=' 2>/dev/null || true)"
+if [ -n "$PROXY_ENV" ]; then
+    printf '%s\n' "$PROXY_ENV" | sed -E 's#(https?|socks5?)://[^/@[:space:]]+@#\1://***@#Ig'
+else
+    echo 'No proxy environment variables found.'
+fi
+
+printf '\n### 3. GNOME proxy settings (if available)\n'
+if command -v gsettings >/dev/null 2>&1; then
+    printf 'mode: '; gsettings get org.gnome.system.proxy mode 2>/dev/null || true
+    printf 'http host: '; gsettings get org.gnome.system.proxy.http host 2>/dev/null || true
+    printf 'http port: '; gsettings get org.gnome.system.proxy.http port 2>/dev/null || true
+    printf 'https host: '; gsettings get org.gnome.system.proxy.https host 2>/dev/null || true
+    printf 'https port: '; gsettings get org.gnome.system.proxy.https port 2>/dev/null || true
+    printf 'socks host: '; gsettings get org.gnome.system.proxy.socks host 2>/dev/null || true
+    printf 'socks port: '; gsettings get org.gnome.system.proxy.socks port 2>/dev/null || true
+else
+    echo 'gsettings not available.'
+fi
+
+printf '\n### 4. Antigravity / proxy-related processes (no full arguments)\n'
+ps -eo pid=,user=,comm= 2>/dev/null | grep -iE 'antigrav|agy|language|v2ray|xray|sing|clash|mihomo|sakura' | grep -v grep || echo 'No matching process found.'
+
+printf '\n### 5. Local TCP listening ports\n'
+if command -v ss >/dev/null 2>&1; then
+    ss -ltnp 2>/dev/null || ss -ltn 2>/dev/null
+elif command -v netstat >/dev/null 2>&1; then
+    netstat -ltnp 2>/dev/null || netstat -ltn 2>/dev/null
+else
+    echo 'Neither ss nor netstat is available.'
+fi
+
+printf '\n### 6. Likely proxy-related listeners\n'
+if command -v ss >/dev/null 2>&1; then
+    ss -ltnp 2>/dev/null | grep -iE 'v2ray|xray|sing|clash|mihomo|sakura|127\.0\.0\.1|\[::1\]' || echo 'No obvious proxy listener matched.'
+elif command -v netstat >/dev/null 2>&1; then
+    netstat -ltnp 2>/dev/null | grep -iE 'v2ray|xray|sing|clash|mihomo|sakura|127\.0\.0\.1|::1' || echo 'No obvious proxy listener matched.'
+fi
+
+printf '\n### 7. Antigravity executable / common locations\n'
+command -v antigravity 2>/dev/null || true
+for p in \
+    /opt/Antigravity/Antigravity \
+    /opt/antigravity/antigravity \
+    /usr/local/bin/antigravity \
+    "$HOME/.local/bin/antigravity" \
+    "$HOME/Applications/Antigravity" \
+    "$HOME/Applications/antigravity"
+do
+    [ -e "$p" ] && printf '%s\n' "$p"
+done
+
+find "$HOME/.local/share/applications" /usr/share/applications \
+    -maxdepth 1 -iname '*antigravity*.desktop' -print 2>/dev/null
+
+if command -v flatpak >/dev/null 2>&1; then
+    flatpak list 2>/dev/null | grep -i antigravity || true
+fi
+if command -v snap >/dev/null 2>&1; then
+    snap list 2>/dev/null | grep -i antigravity || true
+fi
+
+printf '\n### 8. Executable paths for matching running processes\n'
+for pid in $(ps -eo pid=,comm= 2>/dev/null | awk 'tolower($2) ~ /(antigrav|agy|language|v2ray|xray|sing|clash|mihomo|sakura)/ {print $1}'); do
+    exe="$(readlink -f "/proc/$pid/exe" 2>/dev/null || true)"
+    [ -n "$exe" ] && printf 'PID %s -> %s\n' "$pid" "$exe"
+done
 
 printf '\n%s\n' '================ ANTIGRAVITY PROXY DIAG END =================='
 ```
@@ -205,59 +300,51 @@ xattr -d com.apple.quarantine ~/Downloads/antigravity-proxy-macos.command
 
 ---
 
-## 工作原理
+## 工作原理 / What it does
 
-一个给 Google Antigravity 使用的**进程级代理启动器**：让 Antigravity 及其子进程继承本地 HTTP/SOCKS 代理，同时**无需开启 TUN，也不修改系统全局代理配置**。
+**中文：**通过**进程级代理**启动 Google Antigravity，让 Antigravity 及其子进程使用本地 HTTP/SOCKS 代理，同时**无需开启 TUN，也不修改系统全局代理配置**。
 
-适用于这类情况：浏览器通过系统代理可以正常联网，但 Antigravity 或其后台进程仍然无法稳定访问网络。
+**EN:** Launch Google Antigravity with a **process-local proxy** so Antigravity and its child processes can use a local HTTP/SOCKS proxy **without enabling TUN mode or changing global proxy settings**.
 
-启动器会：
+启动器会 / The launcher:
 
-1. 自动寻找 Antigravity；
-2. 检查 Antigravity 是否已经运行——旧进程无法事后继承新的环境变量，因此必须先彻底退出；
-3. 按以下顺序选择代理：
-   - 用户显式指定的 `AG_HTTP_PROXY` / `AG_SOCKS_PROXY` / `AG_PROXY_PORT`；
-   - 当前 shell 已有的代理环境变量；
-   - Windows/macOS 当前用户的系统代理；
-   - 常见 localhost 代理端口作为兜底；
-4. 只在 Antigravity 进程树内注入 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY` 及其小写版本；
-5. 启动 Antigravity，其后台/子进程自动继承这些变量。
+1. 自动寻找 Antigravity / Finds Antigravity automatically;
+2. 阻止连接到已经运行、无法事后继承代理环境的旧进程 / Refuses to attach to an already-running unproxied instance;
+3. 按顺序使用手动覆盖、已有代理环境变量、Windows/macOS 系统代理、常见 localhost 端口 / Chooses manual overrides, existing proxy env vars, Windows/macOS user proxy, then common localhost ports;
+4. 只向 Antigravity 进程树注入 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY` 及小写变量 / Injects those variables only into the Antigravity process tree;
+5. 启动 Antigravity，让后台子进程继承 / Starts Antigravity so backend processes inherit the proxy.
 
-它不会：
+它不会 / It does not：
 
-- 开启 TUN；
-- 修改全局系统代理；
-- 安装虚拟网卡或 Network Extension；
-- 关闭 TLS 证书校验；
-- 关闭 Gatekeeper、SIP、Windows Defender 等安全机制；
-- 要求管理员/root 权限。
+- 开启 TUN / enable TUN;
+- 修改全局系统代理 / change global system proxy settings;
+- 安装虚拟网卡或 Network Extension / install a virtual adapter or Network Extension;
+- 关闭 TLS 证书校验 / disable TLS certificate verification;
+- 关闭 Gatekeeper、SIP、Windows Defender 等安全机制 / disable Gatekeeper, SIP, Windows Defender, etc.;
+- 要求管理员/root 权限 / require Administrator/root privileges.
 
-## 支持平台
+## 支持平台 / Supported systems
 
-| 系统 | 启动文件 | 说明 |
+| 系统 / OS | 启动文件 / Launcher | 说明 / Notes |
 |---|---|---|
-| Windows 10/11 | `antigravity-proxy-windows.cmd` | 配合同目录 PowerShell 脚本完成检测与启动 |
-| macOS | `antigravity-proxy-macos.command` | 自动读取 macOS 系统代理并探测常见本地端口 |
-| Linux | `antigravity-proxy-linux.sh` | 使用现有环境变量、手动覆盖或常见本地端口 |
+| Windows 10/11 | `antigravity-proxy-windows.cmd` | 配合同目录 PowerShell 脚本 / Uses bundled PowerShell helper |
+| macOS | `antigravity-proxy-macos.command` | 读取系统代理并探测本地端口 / Reads macOS proxy + probes local ports |
+| Linux | `antigravity-proxy-linux.sh` | 使用环境变量、手动覆盖或常见端口 / Uses env/manual overrides/common ports |
 
-脚本不绑定具体代理客户端。只要客户端提供本地 HTTP、SOCKS5 或 mixed 代理端点，就可以用于 v2rayN、Clash/Mihomo 系客户端、SakuraCat、sing-box/Xray 前端等。
+脚本不绑定具体代理客户端。只要客户端暴露本地 HTTP、SOCKS5 或 mixed 代理端点，就可用于 v2rayN、Clash/Mihomo 系客户端、SakuraCat、sing-box/Xray 前端等。
 
-## 快速使用
+The launcher is proxy-client agnostic. It can work with v2rayN, Clash/Mihomo-based clients, SakuraCat, sing-box/Xray frontends, and other clients exposing a local HTTP/SOCKS5/mixed proxy endpoint.
+
+## 快速使用 / Quick start
 
 ### Windows
 
-1. 启动代理客户端，不需要 TUN；
-2. 完全退出 Antigravity；
-3. 将以下两个文件放在同一目录：
-   - `antigravity-proxy-windows.cmd`
-   - `antigravity-proxy-windows.ps1`
-4. 双击 `antigravity-proxy-windows.cmd`。
-
-`.cmd` 只为当前 PowerShell 子进程使用 `ExecutionPolicy Bypass`，不会修改系统或当前用户的 PowerShell 执行策略。
+1. 启动代理客户端，不需要 TUN / Start your proxy client; TUN is not required;
+2. 完全退出 Antigravity / Quit Antigravity completely;
+3. 将 `antigravity-proxy-windows.cmd` 与 `antigravity-proxy-windows.ps1` 放在同一目录 / Put both files in the same folder;
+4. 双击 `antigravity-proxy-windows.cmd` / Double-click it.
 
 ### macOS
-
-使用 Git clone：
 
 ```bash
 git clone https://github.com/peroperoyui-lab/antigravity-login-tool--.git
@@ -265,15 +352,7 @@ cd antigravity-login-tool--
 ./antigravity-proxy-macos.command
 ```
 
-如果直接通过浏览器下载脚本，macOS 可能为其添加 quarantine 标记。先检查脚本内容，然后可以 Finder **右键 → 打开**，或者只移除这个文件自身的隔离标记：
-
-```bash
-chmod +x antigravity-proxy-macos.command
-xattr -d com.apple.quarantine antigravity-proxy-macos.command
-./antigravity-proxy-macos.command
-```
-
-不要全局关闭 Gatekeeper。
+如果通过浏览器下载，请按上方 macOS 权限章节处理 / If downloaded through a browser, use the macOS permission steps above.
 
 ### Linux
 
@@ -282,40 +361,34 @@ chmod +x antigravity-proxy-linux.sh
 ./antigravity-proxy-linux.sh
 ```
 
-## 自动识别代理
+## 自动识别代理 / Automatic proxy detection
 
-兜底探测的常见端口包括：
+兜底端口 / Fallback ports：`10808`, `10809`, `7890`, `7897`, `7891`。
 
-- `10808`：常见 v2rayN / mixed 端口；
-- `10809`：旧版 v2rayN 配置中常见 HTTP 端口；
-- `7890`：Clash/Mihomo 常见 mixed 端口；
-- `7897`：部分 Clash/Mihomo 系配置使用；
-- `7891`：常见 SOCKS 端口。
+Windows/macOS 会优先读取当前用户系统代理；也可通过 `AG_PROXY_PORT`、`AG_HTTP_PROXY`、`AG_SOCKS_PROXY` 手动指定。
 
-Windows/macOS 上会优先读取当前用户系统代理，因此正常情况下无需修改脚本。
+Windows/macOS prefer the current user proxy when available; manual overrides are available through `AG_PROXY_PORT`, `AG_HTTP_PROXY`, and `AG_SOCKS_PROXY`.
 
-## 手动指定
+## 手动指定 / Manual override
 
-如果你的客户端用了特殊端口，建议显式指定。
+### 单一 mixed 端口 / One mixed port
 
-### 单一 mixed 端口
-
-macOS/Linux：
+macOS/Linux:
 
 ```bash
 AG_PROXY_PORT=12345 ./antigravity-proxy-macos.command
 ```
 
-Windows CMD：
+Windows CMD:
 
 ```bat
 set AG_PROXY_PORT=12345
 antigravity-proxy-windows.cmd
 ```
 
-### 分别指定 HTTP 与 SOCKS
+### 分别指定 HTTP 与 SOCKS / Explicit HTTP and SOCKS endpoints
 
-macOS/Linux：
+macOS/Linux:
 
 ```bash
 AG_HTTP_PROXY=http://127.0.0.1:12345 \
@@ -323,7 +396,7 @@ AG_SOCKS_PROXY=socks5://127.0.0.1:12346 \
 ./antigravity-proxy-macos.command
 ```
 
-Windows CMD：
+Windows CMD:
 
 ```bat
 set AG_HTTP_PROXY=http://127.0.0.1:12345
@@ -331,44 +404,31 @@ set AG_SOCKS_PROXY=socks5://127.0.0.1:12346
 antigravity-proxy-windows.cmd
 ```
 
-### Antigravity 不在默认位置
+## 为什么必须先退出 Antigravity？ / Why quit Antigravity first?
 
-通过 `AG_APP` 指定。macOS 可以给 `.app` 路径或实际可执行文件路径：
+**中文：**环境变量是在创建子进程时继承的，无法事后注入已经运行的 Antigravity，因此必须先彻底退出旧实例。
 
-```bash
-AG_APP=/custom/path/Antigravity.app ./antigravity-proxy-macos.command
-```
+**EN:** Environment variables are inherited when a child process is created; they cannot be retroactively injected into an already-running Antigravity instance.
 
-Windows：
+## 安全说明 / Security model
 
-```bat
-set AG_APP=D:\Apps\Antigravity\Antigravity.exe
-antigravity-proxy-windows.cmd
-```
+**中文：**所有启动器都是可直接审查的纯文本脚本，并明确避免关闭 TLS 校验或操作系统安全机制。从非可信镜像下载时请先检查源码。代理 URL 如果包含用户名/密码，部分系统上同一用户的其他进程可能看到相关环境变量，因此尽量使用不内嵌凭据的 localhost 本地代理。
 
-## 为什么必须先退出 Antigravity？
+**EN:** All launchers are plain-text scripts. They intentionally avoid disabling TLS verification or OS security features. Review scripts downloaded from untrusted mirrors. Proxy credentials in environment variables may be visible to other processes running as the same user, so prefer a localhost proxy without embedded credentials when possible.
 
-环境变量是在创建子进程时继承的，无法事后注入到已经运行的 Antigravity。因此检测到旧实例时，启动器会主动停止并提示先退出，而不是挂到一个没有代理环境的旧进程上。
+## 常见问题 / Troubleshooting
 
-## 安全说明
+**提示找不到代理 / No proxy detected**  
+先启动代理客户端，或手动设置 `AG_PROXY_PORT` / `AG_HTTP_PROXY`。 / Start the proxy client first, or set `AG_PROXY_PORT` / `AG_HTTP_PROXY` manually.
 
-所有内容都是可直接审查的纯文本脚本。脚本明确避免关闭 TLS 校验、全局关闭 Gatekeeper 等高风险“修复方式”。
+**提示 Antigravity 已经运行 / Antigravity is already running**  
+彻底退出后再通过本工具启动。 / Quit it completely, then relaunch through this tool.
 
-如果代理 URL 中包含用户名/密码，部分系统上同一用户权限下的其他进程可能看到环境变量，因此建议优先使用不带凭据的 localhost 本地代理。
+**只有 SOCKS 端口仍无法联网 / SOCKS-only proxy still does not work**  
+部分组件可能只读取 `HTTP_PROXY` / `HTTPS_PROXY`，建议启用 HTTP 或 mixed 本地端口。 / Some components may specifically honor `HTTP_PROXY` / `HTTPS_PROXY`; configure an HTTP or mixed endpoint.
 
-## 常见问题
-
-**提示找不到代理**  
-先启动代理客户端；或者手动设置 `AG_PROXY_PORT` / `AG_HTTP_PROXY`。
-
-**提示 Antigravity 已经运行**  
-彻底退出 Antigravity，再通过本启动器打开。
-
-**只有 SOCKS 端口仍然无法联网**  
-Antigravity 的部分组件/网络库可能只读取 `HTTP_PROXY` / `HTTPS_PROXY`。建议在代理客户端开启 HTTP 或 mixed 本地端口，再通过 `AG_HTTP_PROXY` 指向它。
-
-**macOS 提示“身份不明的开发者”**  
-这里发布的是源码脚本，不是经过 Apple notarization 的 `.app`。检查源码后使用 Finder 右键打开，或者只删除该脚本的 quarantine 标记；不要关闭整个 Gatekeeper。
+**macOS 提示“身份不明的开发者” / macOS says the developer is unidentified**  
+检查源码后 Finder 右键打开，或仅移除该脚本自身的 quarantine 标记，不要全局关闭 Gatekeeper。 / Use Finder Right click → Open after reviewing the script, or remove quarantine from that script only; do not disable Gatekeeper globally.
 
 ## License
 
