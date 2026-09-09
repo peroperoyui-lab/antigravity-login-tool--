@@ -1,5 +1,5 @@
 # Antigravity Proxy Launcher
-
+其实大概率是没法拿来直接用的，主要是给你的ai提供一个解决这个问题的思路，让你能最快的根据你的本机情况，让你用的ai给你做一个你能直接用的脚本。
 > **English / 中文 — Read this first / 请先看这里**
 >
 > **中文：本工具主要面向想使用 Antigravity，但不希望开启代理客户端的 TUN 模式、让虚拟网卡接管本机全部流量的用户。**它让 Antigravity 及其子进程单独继承本地 HTTP/SOCKS 代理，而不是让整台机器进入 TUN。
