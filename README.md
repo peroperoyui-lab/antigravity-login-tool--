@@ -14,6 +14,78 @@
 >
 > **EN:** The launcher is designed to be generic, but proxy clients, ports, install paths, and OS versions vary. If it cannot launch Antigravity or Antigravity still has no network access, **do not disable TLS verification, Gatekeeper, SIP, Defender, or other security controls**. Start your normal proxy client, run the safe diagnostic command for your OS below, and give the **launcher + sanitized output + exact error/screenshot + proxy-client name** to an AI assistant. Ask it to preserve this project's process-local proxy-injection design while adapting the launcher to your machine.
 
+## Gemini web “Something went wrong” / blank page — Gems Creator workaround
+## Gemini 网页“出了点问题”/ 白屏——Gems Creator 旁路重置法
+
+> **Community workaround / 社区验证方法：**这和 Antigravity 的本地代理问题是两件不同的事。如果 **Gemini 网页本身**在 Google 账号登录后卡在 `Something went wrong / 出了点问题`、白屏或无法进入聊天界面，可以试下面这个“邪修”。Gemini Apps Community 里有多条 2026 年案例复现成功，但 **Google 没有把它作为百分之百保证有效的正式修复方案**。
+>
+> **EN:** This is separate from Antigravity’s local proxy issue. If the **Gemini website itself** becomes stuck on `Something went wrong`, a blank page, or an unusable post-login UI, the following workaround has been repeatedly reported as successful in the Gemini Apps Community. It is a **community workaround, not an officially guaranteed repair**.
+
+大家说的“**去 Gemini 设一个人设就能救回来**”，更准确地说，是**绕过坏掉的 Gemini 首页，直接进入 Gems Creator，创建一个临时 Gem/人设，并让右侧 Preview 成功完成一次对话**。
+
+What people often describe as “**set a persona in Gemini**” is more precisely: **bypass the broken Gemini landing page, open Gems Creator directly, create a temporary Gem/persona, and make the Preview chat successfully complete one request.**
+
+### 操作步骤 / Steps
+
+1. **保持登录那个出问题的 Google 账号。**  
+   **Stay signed in to the affected Google account.**
+
+2. 不要先打开普通 Gemini 首页，直接访问：  
+   Instead of opening the normal Gemini homepage, go directly to:
+
+   **https://gemini.google.com/gems/create**
+
+3. 如果 Gems Creator 能正常加载，随便创建一个临时 Gem/“人设”。内容不重要，例如：  
+   If Gems Creator loads, create any temporary Gem/persona. The content does not matter, for example:
+
+   - Name / 名称：`Test`
+   - Instructions / 人设说明：`You are a helpful assistant.` / `你是一个乐于助人的助手。`
+
+4. 在页面**右侧 Preview / 预览聊天框**里发送一句：  
+   In the **Preview chat on the right**, send:
+
+   `Hi`
+
+5. **一定要等 Gemini 真正回复一次。**这一步是关键。  
+   **Wait until Gemini actually replies once.** This is the important part.
+
+6. 然后重新打开：  
+   Then return to:
+
+   **https://gemini.google.com/**
+
+   刷新页面，再尝试正常聊天界面。  
+   Refresh and try the normal chat UI again.
+
+7. 如果恢复了，刚才创建的临时 Gem 之后删掉即可。  
+   If the main page works again, you can delete the temporary Gem afterwards.
+
+### 还没恢复？ / Still broken?
+
+如果 `/gems/create` 能打开，但 Gemini 首页仍然不行，可以尝试**在这个能正常工作的 Gems 页面里退出账号，再重新登录，然后重复上面的创建 Gem + Preview 发 `Hi` 流程**。有用户反馈这会进一步触发账号/session 重新初始化。
+
+If `/gems/create` works but the main Gemini page still does not, try **signing out and back in from the working Gems route**, then repeat the temporary-Gem + Preview `Hi` sequence. Some users report that this forces a fresher account/session initialization.
+
+如果连 `/gems/create` 都打不开，这个方法大概率不适用于你的故障。此时继续检查无痕模式、Cookie/缓存、浏览器扩展、Google 账号资料、Gemini Apps Activity，或者向 Google 反馈账号级故障。
+
+If `/gems/create` itself also fails, this workaround probably does not apply. Continue with normal browser/account troubleshooting such as Incognito/Private mode, cookies/cache, extensions, Google account/profile checks, Gemini Apps Activity, or report the account-specific failure to Google.
+
+### 为什么这种“邪修”可能有效？ / Why can this work?
+
+Gemini Apps Community 的多条案例表明，有时出问题的是**特定 Google 账号在 Gemini 主页面上的 backend/session 状态**，而 Gems Creator 这条页面路径仍然能正常工作。通过 Gems Creator 创建一个 Gem 并让 Preview 成功请求一次，**似乎会通过另一条可工作的路径触发账号/session 的初始化或刷新**，之后主页面可能恢复。这个解释来自社区排障观察；Google 没有正式公开该 workaround 的后台根因。
+
+Multiple Gemini Apps Community cases suggest that an **account-specific Gemini landing-page/backend session state** can become stuck while the Gems Creator route still works. Creating a Gem and successfully using its Preview **appears to trigger initialization or refresh through another working route**, after which the main Gemini page may recover. This explanation is based on observed community troubleshooting; Google has not published a formal backend root-cause explanation for the workaround.
+
+**Detailed bilingual guide / 双语详细说明：** [GEMINI-WEB-WORKAROUND.md](GEMINI-WEB-WORKAROUND.md)
+
+Community examples / 社区案例：
+- https://support.google.com/gemini/thread/435427584/
+- https://support.google.com/gemini/thread/440304023/
+- https://support.google.com/gemini/thread/441307364/
+- https://support.google.com/gemini/thread/436277317/
+
+---
+
 [中文说明 / Chinese README](README.zh-CN.md)
 
 ---
@@ -359,8 +431,8 @@ The launcher is proxy-client agnostic / 脚本不绑定具体代理客户端。I
 ### macOS
 
 ```bash
-git clone https://github.com/peroperoyui-lab/antigravity-login-tool--.git
-cd antigravity-login-tool--
+git clone https://github.com/peroperoyui-lab/antigravity-proxy-launcher.git
+cd antigravity-proxy-launcher
 ./antigravity-proxy-macos.command
 ```
 
