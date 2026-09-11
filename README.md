@@ -2,6 +2,72 @@
 如果本机有可用agent，直接把仓库发给agent即可。其实大概率是没法拿来直接用的，主要是给你的ai提供一个解决这个问题的思路，让你能最快的根据你的本机情况，让你用的ai给你做一个你能直接用的脚本。你根据你的设备系统，从上面的脚本里挑对应的下载下来，然后找到下方的简介，用系统的命令行工具运行下方的提示词，然后把脚本和命令行的输出一起扔给ai，它给你写一个新的脚本，就是你专用的了。注意本机需要已经安装antigravity，并且代理软件还是打开的，具体注意事项和流程见下方详细说明。以后想用antigravity，就直接用脚本启动就行，antigravity的快捷方式可以更换地址给脚本文件的地址，因为保留图标显得比较好看。（只有这句话不是GPT写的哈哈）
 
 If an agent is available on the local machine, simply send the repository directly to the agent.In all likelihood, you won't be able to use the scripts directly; their main purpose is to provide your AI with a strategy for solving the problem. This allows you to quickly generate a ready-to-use script tailored to your specific local setup. Simply select and download the appropriate script for your operating system from the list above, locate the brief description below it, run the provided prompt using your system's command-line tool, and then feed both the script and the command-line output to the AI; it will then generate a new, custom script specifically for you. Please note that you must have `antigravity` installed locally and your proxy software running; refer to the detailed instructions below for specific requirements and the workflow.In the future, if you want to use Antigravity, simply launch it via the script. You can update the target path of the Antigravity shortcut to point to the script file instead, as keeping the icon makes it look better. (this is the only sentence here not written by GPT, haha).
+
+## 先怎么用 / Quick start
+
+先确保 **Antigravity 已经安装**，并且你的代理软件已经正常打开。**不用开 TUN。**第一次先直接试对应系统的通用脚本；如果能正常打开并联网，以后都从这个脚本启动 Antigravity 即可。如果不行，再看后面的“通用脚本无效时”诊断部分。
+
+Make sure **Antigravity is installed** and your proxy client is already running. **TUN is not required.** Try the generic launcher for your OS first. If Antigravity opens and works normally, just use that launcher from now on. If it does not work, continue to the diagnostic section below.
+
+### Windows 10 / 11
+
+下载下面 **两个文件**，放在同一个文件夹里：
+
+- [`antigravity-proxy-windows.cmd`](antigravity-proxy-windows.cmd)
+- [`antigravity-proxy-windows.ps1`](antigravity-proxy-windows.ps1)
+
+然后：
+
+1. 打开你的代理软件；
+2. 完全退出已经打开的 Antigravity；
+3. **双击 `antigravity-proxy-windows.cmd`**；
+4. 不需要手动运行 `.ps1`，`.cmd` 会自动调用它。
+
+Download **both files** above into the same folder, start your proxy client, quit any running Antigravity instance, then **double-click `antigravity-proxy-windows.cmd`**. The `.cmd` file will call the PowerShell helper automatically.
+
+### macOS
+
+只需要下载：
+
+- [`antigravity-proxy-macos.command`](antigravity-proxy-macos.command)
+
+然后：
+
+1. 打开你的代理软件；
+2. 用 `Command + Q` 完全退出 Antigravity；
+3. 双击 `antigravity-proxy-macos.command` 启动。
+
+如果第一次提示**没有执行权限 / 身份不明的开发者**，先在 Finder 里右键脚本 → **打开**。如果仍然被拦，打开 Terminal，把下面两条命令中的脚本路径换成你下载文件的实际位置；最简单的方法是输入命令和一个空格后，把脚本文件直接拖进 Terminal：
+
+```bash
+chmod +x /path/to/antigravity-proxy-macos.command
+xattr -d com.apple.quarantine /path/to/antigravity-proxy-macos.command
+```
+
+然后再双击脚本。不要为了这个脚本全局关闭 Gatekeeper。
+
+Download only [`antigravity-proxy-macos.command`](antigravity-proxy-macos.command), start your proxy client, quit Antigravity with `Command + Q`, and run the `.command` file. If macOS blocks it, use Finder **Right click → Open**, or grant execute permission and remove the quarantine flag from this file only with the commands above.
+
+### Linux
+
+下载：
+
+- [`antigravity-proxy-linux.sh`](antigravity-proxy-linux.sh)
+
+打开终端，进入脚本所在目录，然后运行：
+
+```bash
+chmod +x antigravity-proxy-linux.sh
+./antigravity-proxy-linux.sh
+```
+
+运行前同样先打开你的代理软件，并退出已有的 Antigravity 进程。
+
+Download [`antigravity-proxy-linux.sh`](antigravity-proxy-linux.sh), open a terminal in that directory, run the two commands above, and make sure your proxy client is already running and Antigravity is closed first.
+
+> **如果上面的通用脚本直接有效，到这里就够了。下面才是脚本无效、端口或安装路径不兼容时的排查方法。**  
+> **If the generic launcher works, you can stop here. The sections below are for machines where automatic detection fails or needs customization.**
+
 > **English / 中文 — Read this first / 请先看这里**
 >
 > **中文：本工具主要面向想使用 Antigravity，但不希望开启代理客户端的 TUN 模式、让虚拟网卡接管本机全部流量的用户。**它让 Antigravity 及其子进程单独继承本地 HTTP/SOCKS 代理，而不是让整台机器进入 TUN。
