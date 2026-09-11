@@ -1,5 +1,6 @@
 # Antigravity Proxy Launcher
-其实大概率是没法拿来直接用的，主要是给你的ai提供一个解决这个问题的思路，让你能最快的根据你的本机情况，让你用的ai给你做一个你能直接用的脚本。
+其实大概率是没法拿来直接用的，主要是给你的ai提供一个解决这个问题的思路，让你能最快的根据你的本机情况，让你用的ai给你做一个你能直接用的脚本。你根据你的设备系统，从上面的脚本里挑对应的下载下来，然后找到下方的简介，用系统的命令行工具运行下方的提示词，然后把脚本和命令行的输出一起扔给ai，它给你写一个新的脚本，就是你专用的了。注意本机需要已经安装antigravity，并且代理软件还是打开的，具体注意事项和流程见下方详细说明（只有这句话不是GPT写的哈哈）。
+In all likelihood, you won't be able to use the scripts directly; their main purpose is to provide your AI with a strategy for solving the problem. This allows you to quickly generate a ready-to-use script tailored to your specific local setup. Simply select and download the appropriate script for your operating system from the list above, locate the brief description below it, run the provided prompt using your system's command-line tool, and then feed both the script and the command-line output to the AI; it will then generate a new, custom script specifically for you. Please note that you must have `antigravity` installed locally and your proxy software running; refer to the detailed instructions below for specific requirements and the workflow (this is the only sentence here not written by GPT, haha).
 > **English / 中文 — Read this first / 请先看这里**
 >
 > **中文：本工具主要面向想使用 Antigravity，但不希望开启代理客户端的 TUN 模式、让虚拟网卡接管本机全部流量的用户。**它让 Antigravity 及其子进程单独继承本地 HTTP/SOCKS 代理，而不是让整台机器进入 TUN。
